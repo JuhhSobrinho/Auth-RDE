@@ -11,4 +11,12 @@ export default defineConfig({
   // branco com 404 nos .js/.css. Se o repositório for renomeado, atualizar
   // esse valor junto.
   base: '/Auth-RDE/',
+  build: {
+    // GitHub Pages (modo "Deploy from a branch") só deixa escolher a raiz
+    // do repositório ou uma pasta chamada exatamente "docs" — não dá pra
+    // apontar pra "dist" (que também vem ignorada no .gitignore padrão do
+    // Vite, então nunca era commitada mesmo). Gerando o build direto em
+    // "docs/", basta commitar essa pasta e apontar o Pages pra ela.
+    outDir: 'docs',
+  },
 })

@@ -171,7 +171,8 @@ function check(
   valorRde: string | undefined,
   valorMemorial: string | undefined,
   status: StatusChecagem,
-  explicacao: string
+  explicacao: string,
+  rotulos?: { rde?: string; memorial?: string }
 ): ComparisonCheck {
   contador += 1;
   return {
@@ -180,6 +181,8 @@ function check(
     descricao,
     valorRde: primeiraLinha(valorRde) ?? "—",
     valorMemorial: primeiraLinha(valorMemorial) ?? "—",
+    rotuloRde: rotulos?.rde,
+    rotuloMemorial: rotulos?.memorial,
     status,
     explicacao,
   };
@@ -428,7 +431,10 @@ export function comparar(rde: RdeData, memorial: MemorialData): ComparisonResult
           divergente ? "Inconsistência" : "Consistente",
           divergente
             ? `A lista de "Materiais Utilizados" menciona resina ${[...curasNaLista].join("/")}, mas o "Tipo do Reparo" marcado é ${rde.tipoReparo.sistemaMarcado} — confirmar qual resina foi realmente aplicada.`
-            : "Resina mencionada na lista de materiais é compatível com o \"Tipo do Reparo\" marcado."
+            : "Resina mencionada na lista de materiais é compatível com o \"Tipo do Reparo\" marcado.",
+          // Essa checagem compara dois campos DO PRÓPRIO RDE (não o Memorial)
+          // — os rótulos padrão "RDE"/"Memorial" ficariam enganosos aqui.
+          { rde: "Materiais Utilizados", memorial: "Tipo do Reparo marcado" }
         )
       );
     }

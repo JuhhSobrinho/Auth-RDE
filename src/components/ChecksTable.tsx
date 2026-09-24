@@ -98,11 +98,11 @@ export function ChecksTable({ checks }: { checks: ComparisonCheck[] }) {
                     <div className="check-row__detalhe">
                       <div className="check-card__valores">
                         <div>
-                          <span className="check-card__rotulo">RDE</span>
+                          <span className="check-card__rotulo">{c.rotuloRde ?? "RDE"}</span>
                           <span className="check-card__valor">{c.valorRde || "—"}</span>
                         </div>
                         <div>
-                          <span className="check-card__rotulo">Memorial</span>
+                          <span className="check-card__rotulo">{c.rotuloMemorial ?? "Memorial"}</span>
                           <span className="check-card__valor">{c.valorMemorial || "—"}</span>
                         </div>
                       </div>

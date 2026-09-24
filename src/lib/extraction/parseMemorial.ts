@@ -68,8 +68,11 @@ export function parseMemorial(textoExtraido: PdfExtractedText | null): MemorialD
   // Esse campo costuma quebrar linha ao redor do próprio rótulo no PDF (o
   // valor aparece parte antes, parte depois de "Repair System:"), então
   // buscamos o código do sistema direto no texto inteiro em vez de confiar
-  // no valor recortado pelo parser posicional de rótulos.
-  const repairSystemMatch = fullText.match(/([A-Z]{2,}-[A-Z]{2,}-[A-Z]{2,})\s*\(Biaxial/);
+  // no valor recortado pelo parser posicional de rótulos. Alguns memoriais
+  // anotam uma variante de resina direto no código (ex. "FCR-BC-ST(b)") antes
+  // do parênteses descritivo — "(a)"/"(b)" etc. — por isso esse sufixo é
+  // opcional no meio do match, não só depois dele.
+  const repairSystemMatch = fullText.match(/([A-Z]{2,}-[A-Z]{2,}-[A-Z]{2,}(?:\([a-zA-Z]\))?)\s*\(\s*Biaxial/);
   marcarPosicaoRegex("repairSystem", repairSystemMatch, 1);
 
   const repairThicknessValor = get("repairThicknessLayers", MEM_LABELS.repairThickness);

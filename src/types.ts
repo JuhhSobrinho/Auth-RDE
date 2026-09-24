@@ -154,6 +154,13 @@ export interface ComparisonCheck {
   descricao: string;
   valorRde: string;
   valorMemorial: string;
+  // Rótulos das duas colunas na UI. Por padrão "RDE"/"Memorial" — mas
+  // algumas checagens comparam dois campos que vêm AMBOS do RDE (ex.:
+  // resina citada nos materiais utilizados vs. checkbox de tipo do reparo).
+  // Nesses casos o rótulo genérico "Memorial" seria enganoso, então a
+  // checagem informa rótulos mais específicos.
+  rotuloRde?: string;
+  rotuloMemorial?: string;
   status: StatusChecagem;
   explicacao: string;
 }

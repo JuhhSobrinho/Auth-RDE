@@ -54,11 +54,13 @@ export function parseMemorial(textoExtraido: PdfExtractedText | null): MemorialD
   const humidity = fullText.match(MEM_REGEX.humidity);
   const straightLayers = fullText.match(MEM_REGEX.straightLayers);
   const elbowLayers = fullText.match(MEM_REGEX.elbowLayers);
+  const typeBBasisMatch = fullText.match(MEM_REGEX.typeBBasisConteudo);
   marcarPosicaoRegex("lengthRequestedRequired", minReqLength);
   marcarPosicaoRegex("availableRequiredOverlapPastDefect", availableOverlap);
   marcarPosicaoRegex("humidityLimitPct", humidity);
   marcarPosicaoRegex("straightLayers", straightLayers);
   marcarPosicaoRegex("elbowLayers", elbowLayers);
+  marcarPosicaoRegex("typeBBasisConteudo", typeBBasisMatch, 1);
 
   const parseIntSafe = (s: string | undefined) => {
     const n = s ? Number.parseInt(s, 10) : NaN;
@@ -121,6 +123,8 @@ export function parseMemorial(textoExtraido: PdfExtractedText | null): MemorialD
         primeiroValido(get("lengthRequestedRequired", MEM_LABELS.lengthRequestedRequired), minReqLength?.[1] ? `${minReqLength[1]} mm` : undefined)
       ),
       availableRequiredOverlapPastDefect: parseValorComUnidade(availableOverlap ? `${availableOverlap[1]} mm` : undefined),
+      defectType: get("defectType", MEM_LABELS.defectType),
+      typeBBasisConteudo: typeBBasisMatch?.[1]?.trim() || undefined,
     },
     layerCountOverview: {
       straightLayers: parseIntSafe(straightLayers?.[1]),

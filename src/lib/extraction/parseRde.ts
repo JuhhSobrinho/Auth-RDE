@@ -3,7 +3,7 @@ import { parseValorComUnidade } from "../units";
 import type { CampoAcroForm } from "./acroform";
 import { campoTexto, campoMarcado, campoRetangulo } from "./acroform";
 import type { PdfExtractedText } from "./pdfText";
-import { extrairPorRotulos, extrairGrupoCheckbox, extrairFuroNaLinha } from "./labelParser";
+import { extrairPorRotulos, extrairGrupoCheckbox, extrairFuroNaLinha, RE_FURO_NA_LINHA } from "./labelParser";
 import type { Intervalo } from "./labelParser";
 import { mapaDePosicoes, mapaDeAreas } from "./posicao";
 import {
@@ -146,6 +146,10 @@ export function parseRde(
   if (temTexto) {
     const r = extrairFuroNaLinha(fullText);
     if (r !== null) furoNaLinha = r;
+    const furoMatch = fullText.match(RE_FURO_NA_LINHA);
+    if (furoMatch && furoMatch.index !== undefined) {
+      intervalosCampos.furoNaLinha = { inicio: furoMatch.index, fim: furoMatch.index + furoMatch[0].length };
+    }
   }
   if (furoNaLinha === undefined && temAcroForm) {
     if (campoTexto(acroFields, "Furo na Linha-não")) furoNaLinha = false;

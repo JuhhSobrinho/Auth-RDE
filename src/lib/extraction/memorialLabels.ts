@@ -36,6 +36,7 @@ export const MEM_LABELS = {
   axialDefectLength: "Axial Defect Length:",
   circumferentialDefectLength: "Circumferential Defect Length:",
   lengthRequestedRequired: "Length Requested / Required:",
+  defectType: "Defect Type:",
 
   designPressureInternal: "Design Pressure (Internal):",
   designMinRemainingWall: "Design Minimum Remaining Wall Thickness:",
@@ -87,7 +88,6 @@ const MEM_ROTULOS_FRONTEIRA = [
   "Additional Applied Loads?",
   "Buried Pipe?",
   "Defect Location:",
-  "Defect Type:",
   'Has or will a "stop gap" been installed within the defect area?',
   "Design Lifetime:",
   'Class (set to "Class 1" for occasional loads per 7.5.5):',
@@ -134,4 +134,10 @@ export const MEM_REGEX = {
   straightLayers: /Straight\s+(\d+)\s*layers?/i,
   elbowLayers: /Elbows?\s+(\d+)\s*layers?/i,
   materialSystem: /Material System:?\s*\n?\s*([A-Z0-9-]+)/,
+  // Conteúdo da linha "Type B Basis:" no quadro "Design Basis Summary" — vem
+  // preenchido (método + nº de equação, ex. "Circumferential Slot 13, 14")
+  // só quando o memorial exige um cálculo de defeito passante/vazamento;
+  // fica vazio quando o defeito é só estrutural. Ver "Furo na linha" em
+  // compare.ts.
+  typeBBasisConteudo: /Type B Basis:\s*\r?\n([\s\S]*?)\r?\nDesign Overview:/,
 };

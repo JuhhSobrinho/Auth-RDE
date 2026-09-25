@@ -401,6 +401,61 @@ export function comparar(rde: RdeData, memorial: MemorialData): ComparisonResult
     checks.push(c);
   }
 
+  // Furo na linha: o RDE marca um checkbox "Furo na Linha: ( ) SIM (x) NÃO"
+  // (dadosProjeto.furoNaLinha). No memorial isso aparece de duas formas: (1)
+  // "Defect Type:" na seção "INPUTS - DEFECT DETAILS" — direto, ex.
+  // "Perforation/Leak" = tem furo; outros tipos (dano mecânico, desgaste
+  // externo etc.) = sem furo; (2) como reforço, o quadro "Design Basis
+  // Summary" (1a página) sempre traz "Type A Basis: Reference Equations" —
+  // mas só preenche a linha de baixo de "Type B Basis:" com um método e
+  // números de equação (ex. "Circumferential Slot 13, 14") quando o cálculo
+  // exige um Design Type B (ISO 24817 7.5.7 — defeito passante/vazamento); se
+  // o defeito é só estrutural, essa linha fica vazia. Usamos (1) como fonte
+  // principal e (2) como reforço/fallback quando (1) não é conclusivo.
+  {
+    const defectTypeTexto = memorial.defectDetails.defectType;
+    const ehFuroPorTipo = defectTypeTexto ? /perforat|leak|through[- ]?wall|passante/i.test(defectTypeTexto) : undefined;
+    const typeBConteudo = memorial.defectDetails.typeBBasisConteudo;
+    const ehFuroPorTypeB = typeBConteudo ? /\d/.test(typeBConteudo) : undefined;
+    const furoNoMemorial = ehFuroPorTipo ?? ehFuroPorTypeB;
+    const furoNoRde = rde.dadosProjeto.furoNaLinha;
+
+    const textoRde = furoNoRde === undefined ? undefined : furoNoRde ? "SIM" : "NÃO";
+    const textoMemorial =
+      furoNoMemorial === undefined
+        ? undefined
+        : furoNoMemorial
+          ? (defectTypeTexto ?? `Type B Basis preenchido (${typeBConteudo})`)
+          : (defectTypeTexto ?? "Type B Basis vazio — sem defeito passante");
+
+    if (furoNoRde === undefined || furoNoMemorial === undefined) {
+      checks.push(
+        check(
+          "Condições de projeto",
+          "Furo na linha",
+          textoRde,
+          textoMemorial,
+          "Não Verificável",
+          "Não foi possível determinar com segurança se há furo/defeito passante em um dos dois documentos — conferir manualmente o checkbox \"Furo na Linha\" no RDE e o \"Defect Type\"/quadro \"Design Basis Summary\" no memorial."
+        )
+      );
+    } else {
+      const divergente = furoNoRde !== furoNoMemorial;
+      checks.push(
+        check(
+          "Condições de projeto",
+          "Furo na linha",
+          textoRde,
+          textoMemorial,
+          divergente ? "Inconsistência" : "Consistente",
+          divergente
+            ? `O RDE marca "Furo na Linha: ${textoRde}", mas o memorial indica ${furoNoMemorial ? "defeito passante/vazamento (furo)" : "defeito não passante (sem furo)"} — confirmar qual está correto antes de liberar.`
+            : "Marcação de furo no RDE é compatível com a natureza do defeito descrita no memorial."
+        )
+      );
+    }
+  }
+
   // --- C. Sistema de reparo (material e camadas) ---
   checks.push(
     checarIgualdade("Sistema de reparo", "Sistema/material do reparo", rde.tipoReparo.sistemaMarcado, memorial.repairSpec.repairSystem, {

@@ -110,11 +110,14 @@ export function extrairGrupoCheckbox(fullText: string, opcoes: string[]): Result
 
 /**
  * Caso especial do campo "Furo na Linha: ( ) SIM (X) NÃO" — descobre qual das
- * duas opções tem o "X" dentro dos parênteses.
+ * duas opções tem o "X" dentro dos parênteses. Exportado à parte pra
+ * `parseRde.ts` reusar o MESMO regex na hora de marcar a posição do campo
+ * (o `.index` do match), sem duplicar o padrão.
  */
+export const RE_FURO_NA_LINHA = /\(\s*(X?)\s*\)\s*SIM[\s\S]{0,20}?\(\s*(X?)\s*\)\s*N[ÃA]O/i;
+
 export function extrairFuroNaLinha(fullText: string): boolean | null {
-  const re = /\(\s*(X?)\s*\)\s*SIM[\s\S]{0,20}?\(\s*(X?)\s*\)\s*N[ÃA]O/i;
-  const m = fullText.match(re);
+  const m = fullText.match(RE_FURO_NA_LINHA);
   if (!m) return null;
   const simMarcado = m[1].toUpperCase() === "X";
   const naoMarcado = m[2].toUpperCase() === "X";

@@ -51,6 +51,7 @@ const MAPA: Record<string, MapaCampo> = {
   "Pressão de operação": { rde: ["pressaoOperacao"], memorial: ["operatingPressure"] },
   "Temperatura de operação": { rde: ["temperaturaOperacao"], memorial: ["maxOperatingTemperature"] },
   "Temperatura de projeto": { rde: ["temperaturaProjeto"], memorial: ["maxDesignTemperature"] },
+  "Furo na linha": { rde: ["furoNaLinha"], memorial: ["defectType", "typeBBasisConteudo"] },
   "Sistema/material do reparo": { rde: ["tipoReparo"], memorial: ["repairSystem"] },
   // Além do checkbox "Tipo do Reparo" (o outro lado da comparação), marca a
   // caixa inteira de onde o valor citado em texto livre foi lido —

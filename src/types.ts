@@ -127,6 +127,16 @@ export interface MemorialData {
     axialDefectLength?: ValorComUnidade;
     lengthRequestedRequired?: ValorComUnidade;
     availableRequiredOverlapPastDefect?: ValorComUnidade;
+    // "Defect Type:" em INPUTS - DEFECT DETAILS — ex. "Perforation/Leak"
+    // (defeito passante = furo) vs. outros tipos (ex. "External Damage")
+    // sem furo. Fonte principal da checagem "Furo na linha".
+    defectType?: string;
+    // Conteúdo da linha "Type B Basis:" no quadro "Design Basis Summary" (1a
+    // página) — vem preenchido com um método + números de equação (ex.
+    // "Circumferential Slot 13, 14") quando o cálculo exige um Design Type B
+    // (defeito passante/vazamento, ISO 24817 7.5.7); vem vazio quando o
+    // defeito é só estrutural. Usado como reforço/fallback de "defectType".
+    typeBBasisConteudo?: string;
   };
   layerCountOverview: {
     straightLayers?: number;

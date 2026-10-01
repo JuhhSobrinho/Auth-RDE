@@ -114,6 +114,14 @@ export interface MemorialData {
     requiredOverlap?: ValorComUnidade;
     requiredTaperPerPly?: ValorComUnidade;
     customerSpecifiedRepairLength?: ValorComUnidade;
+    // Parte "Required" (não "Requested") da linha "Min. Req. Length:" do
+    // quadro "Design Basis Summary" — ex. em "540 mm Required | 12000 mm
+    // Requested", este campo guarda os 540mm. É o mínimo que o CÁLCULO (ISO
+    // 24817) de fato exige; "Requested"/"customerSpecifiedRepairLength" é só
+    // o comprimento pedido/especificado pelo cliente, que pode (e
+    // costuma) ser maior que o mínimo sem isso ser um problema. Ver
+    // checagem "Comprimento aplicado vs. exigido" em compare.ts.
+    minimumRequiredRepairLength?: ValorComUnidade;
   };
   systemDetails: {
     lineContents?: string;

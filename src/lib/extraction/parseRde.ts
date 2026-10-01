@@ -17,6 +17,7 @@ import {
 import type { ImagemDetectada } from "./images";
 import { contarFotosCandidatas } from "./images";
 import { extrairMateriaisUtilizados, itensDeKitsResina } from "./materiais";
+import { avisoDePerdaEmRegravacao } from "./integridade";
 
 // Nomes de campo observados no AcroForm de RDEs editados no Acrobat.
 // Nem todo RDE terá esses nomes exatos — por isso o texto é sempre usado
@@ -65,7 +66,8 @@ function primeiroValido(...valores: (string | undefined)[]): string | undefined 
 export function parseRde(
   acroFields: CampoAcroForm[],
   textoExtraido: PdfExtractedText | null,
-  imagens: ImagemDetectada[]
+  imagens: ImagemDetectada[],
+  bytesPdf?: Uint8Array
 ): RdeData {
   const avisos: string[] = [];
   const temAcroForm = acroFields.length > 0;
@@ -175,6 +177,15 @@ export function parseRde(
     ];
   } else if (resumoMatch && resumoMatch.index !== undefined) {
     intervalosAreas.resumoAtividades = { inicio: resumoMatch.index, fim: resumoMatch.index + resumoMatch[0].length };
+  }
+  // Sinal de corrupção já visto em RDEs reais: o PDF foi reeditado/salvo de
+  // novo depois da geração original e essa regravação parece ter apagado o
+  // conteúdo do Resumo — o valor "oficial" (o que este app lê corretamente)
+  // vem vazio, mesmo que o arquivo ainda mostre o texto antigo na tela pra
+  // quem abre num visualizador comum. Ver `integridade.ts`.
+  if (bytesPdf) {
+    const avisoIntegridade = avisoDePerdaEmRegravacao(bytesPdf, ACROFORM_MAP.resumoAtividades, "Resumo das Atividades", resumoAtividades);
+    if (avisoIntegridade) avisos.push(avisoIntegridade);
   }
   const refMatch = (resumoAtividades ?? fullText).match(/Ref\s*Engenharia\s*:\s*([\w./-]+)/i);
   const plaquetaMatch = (resumoAtividades ?? fullText).match(/Plaqueta\s*:\s*([\w./-]+)/i);

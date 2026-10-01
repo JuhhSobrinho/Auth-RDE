@@ -257,7 +257,56 @@ export function comparar(rde: RdeData, memorial: MemorialData): ComparisonResult
   // --- A. Identificação e rastreabilidade ---
   checks.push(checarIgualdade("Identificação", "Cliente / Operador", rde.meta.cliente, memorial.meta.operator));
   checks.push(checarIgualdade("Identificação", "Local", rde.meta.local, memorial.meta.location));
-  checks.push(checarIgualdade("Identificação", "TAG da linha / Line Identity", rde.dadosProjeto.tagLinha, memorial.repairSpec.lineIdentity || memorial.meta.equipmentLineId));
+  {
+    // Duas fontes possíveis pro mesmo dado no memorial ("Line Identity:" na
+    // Composite Repair Specification e "Equipment / Line ID:" na Composite
+    // Design Assessment) — usa a mais COMPLETA (mais longa) das duas, porque
+    // já observamos um bug real de extração em que o texto reconstruído em
+    // ordem de leitura deixa o rótulo "Line Identity:" fisicamente ENTRE duas
+    // linhas do seu próprio valor (quando ele quebra linha na tabela), e só a
+    // parte DEPOIS do rótulo acaba capturada — cortando o início fora (ex.
+    // virou só "FW-A-632" em vez de "3"-FW-A-1230; 3"-FW-A-658; 3"FW-A-627 &
+    // 3"-FW-A-632"). Esse bug pode acontecer em qualquer um dos dois campos;
+    // pegar o mais longo é a defesa mais simples sem depender de saber qual
+    // dos dois está truncado.
+    const candidatos = [memorial.repairSpec.lineIdentity, memorial.meta.equipmentLineId].filter((s): s is string =>
+      Boolean(s && s.trim())
+    );
+    const memTagOriginal = candidatos.sort((a, b) => b.length - a.length)[0];
+    const c = checarIgualdade("Identificação", "TAG da linha / Line Identity", rde.dadosProjeto.tagLinha, memTagOriginal);
+    // Em campanhas com vários pontos de reparo na mesma linha, o RDE às
+    // vezes anota o número do ponto junto da TAG — ex. "2"-PC-B9-0537 (P9)"
+    // — enquanto o memorial (que é por linha, não por ponto) traz só
+    // "2"-PC-B9-0537". Isso não é uma TAG errada, então não deveria virar
+    // Inconsistência; mas também não é um match exato, então em vez de virar
+    // Consistente automático, fica como Ponto de Atenção — só pra alguém
+    // confirmar que o ponto citado é mesmo o do serviço executado.
+    if (c.status === "Inconsistência") {
+      const rdeTag = primeiraLinha(rde.dadosProjeto.tagLinha);
+      const memTag = primeiraLinha(memTagOriginal);
+      const rdeSemPonto = rdeTag?.replace(/\s*\(\s*P(?:T|ONTO)?\.?\s*\d+\s*\)\s*$/i, "").trim();
+      const alvo = rdeSemPonto || rdeTag;
+      if (rdeSemPonto && memTag && iguais(rdeSemPonto, memTag)) {
+        c.status = "Ponto de Atenção";
+        c.explicacao = `O RDE anota o ponto do serviço junto da TAG ("${rdeTag}") — a linha em si bate com o memorial ("${memTag}"). Confirmar apenas se o ponto citado corresponde ao serviço executado.`;
+      } else if (memTag) {
+        // Um mesmo memorial pode valer pra mais de uma linha ao mesmo tempo
+        // (ex. um trecho/ponto comum a várias tubulações calculado junto) —
+        // nesse caso "Line Identity"/"Equipment / Line ID" lista várias TAGs
+        // separadas por ";", "," ou "&". Divergência aqui não é erro: basta a
+        // TAG do RDE ser UMA das listadas no memorial.
+        const linhasDoMemorial = memTag
+          .split(/[;,&]/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        if (linhasDoMemorial.length > 1 && alvo && linhasDoMemorial.some((l) => iguais(alvo, l))) {
+          c.status = "Consistente";
+          c.explicacao = `O memorial de cálculo cobre mais de uma linha ao mesmo tempo ("${memTag}") — a TAG do RDE ("${rdeTag}") é uma delas.`;
+        }
+      }
+    }
+    checks.push(c);
+  }
   checks.push(checarIgualdade("Identificação", "OS Team / Project ID", rde.meta.osTeam, memorial.meta.projectId));
   checks.push(
     checarIgualdade("Identificação", "Referência de engenharia", rde.meta.refEngenharia, memorial.meta.engineeringId, {
@@ -687,7 +736,28 @@ export function comparar(rde: RdeData, memorial: MemorialData): ComparisonResult
   // --- E. Comprimento e overlap ---
   {
     const aplicadoMm = paraMm(rde.dadosProjeto.comprimentoReparo);
-    const exigidoMm = paraMm(memorial.repairSpec.customerSpecifiedRepairLength ?? memorial.defectDetails.lengthRequestedRequired);
+    // O mínimo de verdade (exigido pelo CÁLCULO ISO 24817) é a parte
+    // "Required" de "Min. Req. Length:" quando disponível — NÃO o
+    // "Customer specified repair length" / "Length Requested / Required",
+    // que é só o comprimento pedido/especificado pelo cliente (a parte
+    // "Requested") e pode ser bem maior que o mínimo sem que isso seja um
+    // problema (ex. memorial real: "540 mm Required | 12000 mm Requested" —
+    // 540mm é o mínimo, 12000mm é só o que o cliente pediu). Só cai pros
+    // outros campos como fallback quando o memorial não tem essa linha.
+    const minimoValor =
+      memorial.repairSpec.minimumRequiredRepairLength ?? memorial.repairSpec.customerSpecifiedRepairLength ?? memorial.defectDetails.lengthRequestedRequired;
+    const exigidoMm = paraMm(minimoValor);
+    const solicitadoValor = memorial.repairSpec.customerSpecifiedRepairLength ?? memorial.defectDetails.lengthRequestedRequired;
+    const solicitadoMm = paraMm(solicitadoValor);
+    // primeiraLinha() aqui pela mesma razão do resto do arquivo (ver
+    // checarIgualdade): o valor bruto desse campo às vezes "vaza" o início do
+    // campo seguinte (ex. "Cure requirement:") por causa de outro caso do
+    // mesmo bug de rótulo-no-meio-do-valor-multilinha.
+    const solicitadoTexto = primeiraLinha(solicitadoValor?.valorOriginal);
+    const notaSolicitado =
+      solicitadoTexto && exigidoMm !== null && solicitadoMm !== null && solicitadoMm !== exigidoMm
+        ? ` O memorial também registra um comprimento solicitado pelo cliente de ${solicitadoTexto} — isso é só uma referência do que foi pedido, não o mínimo obrigatório.`
+        : "";
     if (aplicadoMm !== null && exigidoMm !== null) {
       if (aplicadoMm >= exigidoMm) {
         checks.push(
@@ -695,9 +765,9 @@ export function comparar(rde: RdeData, memorial: MemorialData): ComparisonResult
             "Comprimento",
             "Comprimento aplicado vs. exigido",
             rde.dadosProjeto.comprimentoReparo?.valorOriginal,
-            memorial.repairSpec.customerSpecifiedRepairLength?.valorOriginal,
+            minimoValor?.valorOriginal,
             "Consistente",
-            "Comprimento aplicado atende ao mínimo exigido."
+            `Comprimento aplicado atende ao mínimo exigido pelo cálculo.${notaSolicitado}`
           )
         );
       } else {
@@ -706,9 +776,9 @@ export function comparar(rde: RdeData, memorial: MemorialData): ComparisonResult
             "Comprimento",
             "Comprimento aplicado vs. exigido",
             rde.dadosProjeto.comprimentoReparo?.valorOriginal,
-            memorial.repairSpec.customerSpecifiedRepairLength?.valorOriginal,
+            minimoValor?.valorOriginal,
             "Inconsistência",
-            `Comprimento aplicado (${aplicadoMm}mm) é menor que o exigido (${exigidoMm}mm). Confirmar se este RDE cobre só um trecho parcial de uma aplicação em múltiplas etapas — o sistema não agrega outros RDEs da mesma referência automaticamente.`
+            `Comprimento aplicado (${aplicadoMm}mm) é menor que o mínimo exigido pelo cálculo (${exigidoMm}mm).${notaSolicitado} Confirmar se este RDE cobre só um trecho parcial de uma aplicação em múltiplas etapas — o sistema não agrega outros RDEs da mesma referência automaticamente.`
           )
         );
       }
@@ -718,7 +788,7 @@ export function comparar(rde: RdeData, memorial: MemorialData): ComparisonResult
           "Comprimento",
           "Comprimento aplicado vs. exigido",
           rde.dadosProjeto.comprimentoReparo?.valorOriginal,
-          memorial.repairSpec.customerSpecifiedRepairLength?.valorOriginal,
+          minimoValor?.valorOriginal,
           "Não Verificável",
           "Dado ausente em um dos dois documentos."
         )

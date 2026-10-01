@@ -108,6 +108,11 @@ export function parseMemorial(textoExtraido: PdfExtractedText | null): MemorialD
           minReqLength?.[2] ? `${minReqLength[2]} mm` : undefined
         )
       ),
+      // Sempre que a linha "Min. Req. Length:" existir, guarda a parte
+      // "Required" (o mínimo de verdade) — independente de
+      // "Customer specified repair length:" também estar preenchido (esse
+      // último é o "Requested", não o mínimo; ver comentário no types.ts).
+      minimumRequiredRepairLength: parseValorComUnidade(minReqLength?.[1] ? `${minReqLength[1]} mm` : undefined),
     },
     systemDetails: {
       lineContents: get("lineContents", MEM_LABELS.lineContents),

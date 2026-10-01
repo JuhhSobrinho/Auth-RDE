@@ -21,13 +21,24 @@ export function parseValorComUnidade(raw: string | undefined | null): ValorComUn
   return { valorOriginal, valor: Number.isNaN(valor) ? null : valor, unidade };
 }
 
-/** Converte pressão pra bar (aceita bar/barg, kpa/kPa). Retorna null se não reconhecer a unidade. */
+/**
+ * Converte pressão pra bar (aceita bar/barg, kpa/kPa, kgf/cm²). Retorna null
+ * se não reconhecer a unidade.
+ *
+ * kgf/cm² é tratado como NUMERICAMENTE IGUAL a bar (sem aplicar o fator de
+ * conversão físico de 0,980665) — não é um arredondamento grosseiro, é a
+ * convenção que o próprio memorial de cálculo usa: RDEs reais confirmam que
+ * um valor registrado em kgf/cm² (ex. "15kgf/cm²") corresponde ao mesmo
+ * número em barg no memorial ("15 barg"), não ao valor fisicamente
+ * convertido (14,71 bar). Aplicar o fator físico aqui faria a checagem
+ * acusar divergência em casos que na prática são o mesmo valor.
+ */
 export function paraBar(v: ValorComUnidade | undefined): number | null {
   if (!v || v.valor === null) return null;
   const u = (v.unidade ?? "").toLowerCase();
   if (u.startsWith("bar")) return v.valor;
   if (u.startsWith("kpa")) return v.valor / 100;
-  if (u.startsWith("kgf/cm")) return v.valor * 0.980665;
+  if (u.startsWith("kgf")) return v.valor;
   // sem unidade reconhecida: assume que já está em bar (RDE antigo costuma vir só em BAR sem sufixo confiável)
   return v.valor;
 }

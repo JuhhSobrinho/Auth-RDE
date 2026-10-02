@@ -22,6 +22,41 @@ export function parseValorComUnidade(raw: string | undefined | null): ValorComUn
 }
 
 /**
+ * Igual ao parseValorComUnidade, mas para campos de COMPRIMENTO do RDE
+ * ("Comprimento Reparo", "Comprimento PFP aplicado"). Nesses campos o pessoal
+ * costuma escrever o ponto como separador de MILHAR pra deixar claro que é
+ * mil e não cem: "1.000 MM" = 1000 mm, "1.500mm" = 1500 mm. O parser genérico
+ * leria "1.000" como 1,0 (decimal) e a checagem acusaria 1 mm aplicado.
+ *
+ * Regra: se o primeiro número tem grupos de exatamente 3 dígitos depois de
+ * "." (ex. 1.000, 12.500, 1.000,5) ou depois de "," (ex. 1,000 / 12,000.5,
+ * estilo inglês), os separadores de grupo são milhar. Qualquer outra forma
+ * (1003, 1,5 m, 1160.0) segue o parser genérico. Não aplica quando a unidade
+ * é metro ("1.500 m" é mais provável 1,5 m do que 1500 m).
+ */
+export function parseComprimento(raw: string | undefined | null): ValorComUnidade {
+  const base = parseValorComUnidade(raw);
+  if (base.valor === null) return base;
+  const original = base.valorOriginal;
+  const token = original.match(/-?\d[\d.,]*/);
+  if (!token) return base;
+  const t = token[0].replace(/[.,]$/, "");
+  let numStr: string | null = null;
+  if (/^-?\d{1,3}(?:\.\d{3})+(?:,\d+)?$/.test(t)) {
+    numStr = t.replace(/\./g, "").replace(",", ".");
+  } else if (/^-?\d{1,3}(?:,\d{3})+(?:\.\d+)?$/.test(t)) {
+    numStr = t.replace(/,/g, "");
+  }
+  if (numStr === null) return base;
+  const restante = original.slice((token.index ?? 0) + t.length).trim();
+  const unidade = restante ? restante.replace(/^[():\s]+/, "").trim() || null : null;
+  const u = (unidade ?? "").toLowerCase();
+  if (u.startsWith("m") && !u.startsWith("mm")) return base;
+  const valor = Number.parseFloat(numStr);
+  return { valorOriginal: original, valor: Number.isNaN(valor) ? null : valor, unidade };
+}
+
+/**
  * Converte pressão pra bar (aceita bar/barg, kpa/kPa, kgf/cm²). Retorna null
  * se não reconhecer a unidade.
  *

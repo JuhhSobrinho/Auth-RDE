@@ -1,5 +1,5 @@
 import type { RdeData, CampoPosicao } from "../../types";
-import { parseValorComUnidade } from "../units";
+import { parseComprimento, parseValorComUnidade } from "../units";
 import type { CampoAcroForm } from "./acroform";
 import { campoTexto, campoMarcado, campoRetangulo } from "./acroform";
 import type { PdfExtractedText } from "./pdfText";
@@ -244,14 +244,14 @@ export function parseRde(
       temperaturaProjeto: parseValorComUnidade(get("temperaturaProjeto", RDE_LABELS.temperaturaProjeto)),
       pressaoOperacao: parseValorComUnidade(get("pressaoOperacao", RDE_LABELS.pressaoOperacao)),
       temperaturaOperacao: parseValorComUnidade(get("temperaturaOperacao", RDE_LABELS.temperaturaOperacao)),
-      comprimentoReparo: parseValorComUnidade(get("comprimentoReparo", RDE_LABELS.comprimentoReparo)),
+      comprimentoReparo: parseComprimento(get("comprimentoReparo", RDE_LABELS.comprimentoReparo)),
       numeroCamadas: (() => {
         const raw = get("numeroCamadas", RDE_LABELS.numeroCamadas);
         const n = raw ? Number.parseInt(raw, 10) : NaN;
         return Number.isNaN(n) ? undefined : n;
       })(),
       espessuraRep: parseValorComUnidade(get("espessuraRep", RDE_LABELS.espessuraRep)),
-      comprimentoPfpAplicado: parseValorComUnidade(get("comprimentoPfp", RDE_LABELS.comprimentoPfp)),
+      comprimentoPfpAplicado: parseComprimento(get("comprimentoPfp", RDE_LABELS.comprimentoPfp)),
       espessuraPfpAplicada: parseValorComUnidade(get("espessuraPfp", RDE_LABELS.espessuraPfp)),
       furoNaLinha,
     },

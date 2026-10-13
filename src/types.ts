@@ -12,6 +12,13 @@ export interface ValorComUnidade {
 export interface ExtracaoInfo {
   metodo: MetodoExtracao;
   avisos: string[];
+  /**
+   * Modelo de memorial de cálculo detectado (só preenchido no memorial): o
+   * modelo "legado" (Composite Repair Specification + Composite Design
+   * Assessment) e o modelo novo "ISO 24817 2026 Calculation Sheet" convivem
+   * enquanto a migração acontece aos poucos — cada um tem um parser próprio.
+   */
+  modeloMemorial?: "legado" | "iso24817-2026";
 }
 
 export interface MaterialUtilizadoItem {
@@ -145,6 +152,12 @@ export interface MemorialData {
     // (defeito passante/vazamento, ISO 24817 7.5.7); vem vazio quando o
     // defeito é só estrutural. Usado como reforço/fallback de "defectType".
     typeBBasisConteudo?: string;
+    // Veredito de "há defeito passante (furo)?" já decidido pelo parser do
+    // modelo do memorial — preenchido pelo modelo novo (que não tem os
+    // campos "Defect Type: Perforation/Leak" nem "Type B Basis" com número
+    // de equação do modelo legado). Quando presente, tem prioridade sobre a
+    // inferência a partir de defectType/typeBBasisConteudo em compare.ts.
+    defeitoPassante?: { valor: boolean; fonte: string };
   };
   layerCountOverview: {
     straightLayers?: number;

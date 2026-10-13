@@ -1,5 +1,6 @@
 import type { ComparisonCheck, ComparisonResult, MemorialData, RdeData, StatusChecagem } from "../../types";
-import { dentroDaTolerancia, npsParaOdMm, paraBar, paraMm, primeiraLinha } from "../units";
+import { dentroDaTolerancia, npsParaOdMm, paraBar, paraBarAlternativas, paraMm, primeiraLinha } from "../units";
+import type { ValorComUnidade } from "../../types";
 import { RDE_PFP_OPCOES } from "../extraction/rdeLabels";
 
 // Aspas/indicador de polegada em qualquer variante (reta, tipográfica, prime)
@@ -77,6 +78,10 @@ const CONTEUDOS_EQUIVALENTES: Record<string, string> = {
   OIL: "OIL",
   AGUA: "WATER",
   WATER: "WATER",
+  "FIRE WATER": "WATER",
+  "FIRE WATER/DELUGE SYSTEMS": "WATER",
+  "FIRE EXTINGUISHER WATER": "WATER",
+  "AGUA DE COMBATE A INCENDIO": "WATER",
   "AGUA PRODUZIDA": "PRODUCED_WATER",
   "PRODUCED WATER": "PRODUCED_WATER",
   HIDROCARBONETO: "HYDROCARBON",
@@ -250,6 +255,28 @@ function checarNumerico(
   return check(categoria, descricao, rde.display, mem.display, "Inconsistência", "Valores divergem além da tolerância aceitável.");
 }
 
+/**
+ * Pressão RDE vs. memorial, em bar. Se o RDE vem em kgf/cm², aceita tanto a
+ * leitura 1:1 com o bar (modelo legado do memorial: "15kgf/cm²" ↔ "15 barg")
+ * quanto a conversão física (modelo novo, em N/mm²: "16kgf/cm²" ↔ 1,57 N/mm²
+ * = 15,7 bar) — usa a que mais se aproxima do memorial.
+ */
+function checarPressao(descricao: string, rde: ValorComUnidade | undefined, mem: ValorComUnidade | undefined): ComparisonCheck {
+  const memBar = paraBar(mem);
+  const candidatos = paraBarAlternativas(rde);
+  const rdeBar =
+    memBar === null || candidatos.length === 0
+      ? paraBar(rde)
+      : candidatos.reduce((a, b) => (Math.abs(b - memBar) < Math.abs(a - memBar) ? b : a));
+  return checarNumerico(
+    "Condições de projeto",
+    descricao,
+    { display: rde?.valorOriginal, valor: rdeBar },
+    { display: mem?.valorOriginal, valor: memBar },
+    { abs: 0.1 }
+  );
+}
+
 export function comparar(rde: RdeData, memorial: MemorialData): ComparisonResult {
   contador = 0;
   const checks: ComparisonCheck[] = [];
@@ -401,24 +428,8 @@ export function comparar(rde: RdeData, memorial: MemorialData): ComparisonResult
       equivalente: conteudosEquivalentes,
     })
   );
-  checks.push(
-    checarNumerico(
-      "Condições de projeto",
-      "Pressão de projeto",
-      { display: rde.dadosProjeto.pressaoProjeto?.valorOriginal, valor: paraBar(rde.dadosProjeto.pressaoProjeto) },
-      { display: memorial.repairSpec.repairDesignPressure?.valorOriginal, valor: paraBar(memorial.repairSpec.repairDesignPressure) },
-      { abs: 0.1 }
-    )
-  );
-  checks.push(
-    checarNumerico(
-      "Condições de projeto",
-      "Pressão de operação",
-      { display: rde.dadosProjeto.pressaoOperacao?.valorOriginal, valor: paraBar(rde.dadosProjeto.pressaoOperacao) },
-      { display: memorial.systemDetails.operatingPressure?.valorOriginal, valor: paraBar(memorial.systemDetails.operatingPressure) },
-      { abs: 0.1 }
-    )
-  );
+  checks.push(checarPressao("Pressão de projeto", rde.dadosProjeto.pressaoProjeto, memorial.repairSpec.repairDesignPressure));
+  checks.push(checarPressao("Pressão de operação", rde.dadosProjeto.pressaoOperacao, memorial.systemDetails.operatingPressure));
   checks.push(
     checarNumerico(
       "Condições de projeto",
@@ -466,14 +477,19 @@ export function comparar(rde: RdeData, memorial: MemorialData): ComparisonResult
     const ehFuroPorTipo = defectTypeTexto ? /perforat|leak|through[- ]?wall|passante/i.test(defectTypeTexto) : undefined;
     const typeBConteudo = memorial.defectDetails.typeBBasisConteudo;
     const ehFuroPorTypeB = typeBConteudo ? /\d/.test(typeBConteudo) : undefined;
-    const furoNoMemorial = ehFuroPorTipo ?? ehFuroPorTypeB;
+    // O modelo novo de memorial já traz o veredito decidido pelo parser
+    // (ver parseMemorialNovo.ts) — tem prioridade sobre a inferência abaixo.
+    const decididoPeloParser = memorial.defectDetails.defeitoPassante;
+    const furoNoMemorial = decididoPeloParser?.valor ?? ehFuroPorTipo ?? ehFuroPorTypeB;
     const furoNoRde = rde.dadosProjeto.furoNaLinha;
 
     const textoRde = furoNoRde === undefined ? undefined : furoNoRde ? "SIM" : "NÃO";
     const textoMemorial =
       furoNoMemorial === undefined
         ? undefined
-        : furoNoMemorial
+        : decididoPeloParser
+          ? decididoPeloParser.fonte
+          : furoNoMemorial
           ? (defectTypeTexto ?? `Type B Basis preenchido (${typeBConteudo})`)
           : (defectTypeTexto ?? "Type B Basis vazio — sem defeito passante");
 
@@ -811,16 +827,26 @@ export function comparar(rde: RdeData, memorial: MemorialData): ComparisonResult
     const sup = rde.condicoesAplicacao.temperaturaSuperficie?.valor ?? null;
     const min = memorial.installationConditions.minInstallSurfaceTemperature?.valor ?? null;
     const max = memorial.installationConditions.maxInstallSurfaceTemperature?.valor ?? null;
-    if (sup !== null && min !== null && max !== null) {
-      const dentro = sup >= min && sup <= max;
+    if (sup !== null && (min !== null || max !== null)) {
+      // Modelo legado traz faixa (mín–máx); o modelo novo só traz a
+      // temperatura MÁXIMA de superfície na instalação — nesse caso (ou se
+      // só um dos lados vier lido) vale o limite único que existir.
+      const dentro = (min === null || sup >= min) && (max === null || sup <= max);
+      const faixaTexto = min !== null && max !== null ? `${min}–${max}°C` : max !== null ? `≤ ${max}°C` : `≥ ${min}°C`;
       checks.push(
         check(
           "Condições de aplicação",
           "Temperatura de superfície dentro da faixa",
           `${sup}°C`,
-          `${min}–${max}°C`,
+          faixaTexto,
           dentro ? "Consistente" : "Inconsistência",
-          dentro ? "Dentro da faixa permitida de instalação." : "Fora da faixa permitida de instalação."
+          dentro
+            ? min !== null && max !== null
+              ? "Dentro da faixa permitida de instalação."
+              : "Dentro do limite de temperatura de instalação do memorial."
+            : min !== null && max !== null
+              ? "Fora da faixa permitida de instalação."
+              : "Fora do limite de temperatura de instalação do memorial."
         )
       );
     } else {

@@ -1,5 +1,5 @@
 import type { RdeData, CampoPosicao } from "../../types";
-import { parseComprimento, parseValorComUnidade } from "../units";
+import { parseValorComUnidade } from "../units";
 import type { CampoAcroForm } from "./acroform";
 import { campoTexto, campoMarcado, campoRetangulo } from "./acroform";
 import type { PdfExtractedText } from "./pdfText";
@@ -187,7 +187,7 @@ export function parseRde(
     const avisoIntegridade = avisoDePerdaEmRegravacao(bytesPdf, ACROFORM_MAP.resumoAtividades, "Resumo das Atividades", resumoAtividades);
     if (avisoIntegridade) avisos.push(avisoIntegridade);
   }
-  const refMatch = (resumoAtividades ?? fullText).match(/Ref\s*Engenharia\s*:\s*([\w./-]+)/i);
+  const refMatch = (resumoAtividades ?? fullText).match(/Ref\.?\s*Engenharia\s*:\s*([\w./-]+)/i);
   const plaquetaMatch = (resumoAtividades ?? fullText).match(/Plaqueta\s*:\s*([\w./-]+)/i);
 
   const kitsResina = itensDeKitsResina({
@@ -244,14 +244,14 @@ export function parseRde(
       temperaturaProjeto: parseValorComUnidade(get("temperaturaProjeto", RDE_LABELS.temperaturaProjeto)),
       pressaoOperacao: parseValorComUnidade(get("pressaoOperacao", RDE_LABELS.pressaoOperacao)),
       temperaturaOperacao: parseValorComUnidade(get("temperaturaOperacao", RDE_LABELS.temperaturaOperacao)),
-      comprimentoReparo: parseComprimento(get("comprimentoReparo", RDE_LABELS.comprimentoReparo)),
+      comprimentoReparo: parseValorComUnidade(get("comprimentoReparo", RDE_LABELS.comprimentoReparo)),
       numeroCamadas: (() => {
         const raw = get("numeroCamadas", RDE_LABELS.numeroCamadas);
         const n = raw ? Number.parseInt(raw, 10) : NaN;
         return Number.isNaN(n) ? undefined : n;
       })(),
       espessuraRep: parseValorComUnidade(get("espessuraRep", RDE_LABELS.espessuraRep)),
-      comprimentoPfpAplicado: parseComprimento(get("comprimentoPfp", RDE_LABELS.comprimentoPfp)),
+      comprimentoPfpAplicado: parseValorComUnidade(get("comprimentoPfp", RDE_LABELS.comprimentoPfp)),
       espessuraPfpAplicada: parseValorComUnidade(get("espessuraPfp", RDE_LABELS.espessuraPfp)),
       furoNaLinha,
     },
